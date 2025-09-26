@@ -1,5 +1,8 @@
 (ns bank.ports.repository)
 
-(defprotocol AccountRepository
-    (save [this account] "Saves an account.")
-    (get-by-id [this id] "Gets an account by their ID."))
+(defprotocol Repository
+    (insert! [this table item])
+    (update! [this table id args])
+    (delete! [this table id])
+    (get-by-id [this table id])
+)

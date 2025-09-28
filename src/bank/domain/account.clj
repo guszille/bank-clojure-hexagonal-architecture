@@ -1,4 +1,6 @@
-(ns bank.domain.account)
+(ns bank.domain.account
+    (:require [bank.domain.util :as util])
+)
 
 (defrecord Account [id number balance])
 
@@ -11,7 +13,7 @@
             (not (and (string? number) (= (count number) 5)))
             (throw (ex-info "Failed to create the account, invalid account number!" {:account account}))
 
-            (not (and (number? balance) (>= balance 0)))
+            (not (and (util/bigdec? balance) (>= balance 0.00M)))
             (throw (ex-info "Failed to create the account, invalid account balance!" {:account account}))
         )
         account
@@ -19,11 +21,11 @@
 )
 
 (defn update-account-balance [account value]
-    {:pre [(instance? Account account) (number? value)]}
+    {:pre [(instance? Account account) (util/bigdec? value)]}
     (let [{id :id number :number balance :balance} account]
         (let [updated-balance (+ balance value)
               updated-account (->Account id number updated-balance)]
-            (when (< updated-balance 0) (throw (ex-info "Failed to update the account, balance must be greater than or equal to zero!" {:account updated-account})))
+            (when (< updated-balance 0.00M) (throw (ex-info "Failed to update the account, balance must be greater than or equal to zero!" {:account updated-account})))
             updated-account
         )
     )

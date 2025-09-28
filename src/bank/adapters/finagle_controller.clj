@@ -9,8 +9,21 @@
     )
 )
 
+(defn- parse-bigdec-fields [m]
+    (into {}
+        (map (fn [[k v]] [k (cond
+            (instance? java.math.BigDecimal v) v
+            (and (string? v) (.endsWith v "M")) (bigdec (subs v 0 (dec (count v))))
+            :else v
+        )]))
+        m
+    )
+)
+
 (defn- parse-json-request [request]
-    (-> request .contentString (json/parse-string true))
+    (let [body (-> request .contentString (json/parse-string true))]
+        (parse-bigdec-fields body)
+    )
 )
 
 (defn- to-json-response [status-code body]

@@ -16,7 +16,8 @@
 (defn create-account [repository]
     (let [account-id (java.util.UUID/randomUUID)
           account-number (get-naan)
-          account (domain/create-account account-id account-number 0)]
+          account-balance (bigdec 0.00)
+          account (domain/create-account account-id account-number account-balance)]
         (ports/insert! repository :accounts account)
         account
     )

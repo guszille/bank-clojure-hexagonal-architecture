@@ -1,4 +1,6 @@
-(ns bank.domain.transaction)
+(ns bank.domain.transaction
+    (:require [bank.domain.util :as util])
+)
 
 (def transaction-types #{"deposit" "withdrawal" "transfer"})
 
@@ -13,7 +15,7 @@
             (not (contains? transaction-types type))
             (throw (ex-info "Failed to create the transaction, invalid transaction type!" {:transaction transaction}))
 
-            (not (and (number? value) (pos? value)))
+            (not (and (util/bigdec? value) (> value 0.00M)))
             (throw (ex-info "Failed to create the transaction, invalid transaction value!" {:transaction transaction}))
 
             (and (or (= type "withdrawal") (= type "transfer")) (not (uuid? source-account-id)))

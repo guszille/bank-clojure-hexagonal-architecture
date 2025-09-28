@@ -4,6 +4,7 @@
 
 (defrecord InMemoryRepository [db]
     ports/Repository
+
     (insert! [_ table item]
         (swap! db assoc-in [table (:id item)] item)
     )

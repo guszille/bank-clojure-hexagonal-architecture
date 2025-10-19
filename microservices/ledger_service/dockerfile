@@ -1,0 +1,11 @@
+FROM clojure:openjdk-17
+WORKDIR /app
+
+COPY deps.edn /app/
+COPY src /app/src
+
+RUN clojure -P
+
+EXPOSE 3001
+
+CMD ["clojure", "-M", "-m", "bank.core"]

@@ -119,9 +119,9 @@
 )
 
 (defn- handle-get-transaction [repository request]
-    (if-let [transaction-id (parse-uuid-string (last (re-find #"/accounts/(.*)" (.path request))))]
+    (if-let [transaction-id (parse-uuid-string (last (re-find #"/transactions/(.*)" (.path request))))]
         (if-let [transaction (transaction-service/get-transaction-by-id repository transaction-id)]
-            (to-json-response 200 transaction 200)
+            (to-json-response 200 transaction)
             (to-json-response 404 {:error "Transaction not found!"})
         )
         (to-json-response 400 {:error "Invalid transaction ID!"})

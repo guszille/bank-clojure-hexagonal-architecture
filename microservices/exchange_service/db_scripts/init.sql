@@ -23,5 +23,6 @@ CREATE TABLE loans (
     CONSTRAINT fk_issuer
         FOREIGN KEY (issuer_id)
         REFERENCES issuers(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL
 );

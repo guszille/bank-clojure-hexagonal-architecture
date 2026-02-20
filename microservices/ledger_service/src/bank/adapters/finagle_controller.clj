@@ -128,7 +128,7 @@
     )
 )
 
-(defn create-server [port repository]
+(defn create-server [port repository event-publisher]
     (let [handler (proxy [Service] []
         (apply [request]
             (let [path (.path request) method (.method request)]

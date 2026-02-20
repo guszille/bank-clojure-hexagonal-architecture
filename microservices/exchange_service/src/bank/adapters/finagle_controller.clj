@@ -3,6 +3,7 @@
               [bank.application.investor-service :as investor-service]
               [bank.application.issuer-service :as issuer-service]
               [bank.application.loan-service :as loan-service]
+              [bank.ports.event-publisher :as ports]
     )
     (:import (com.twitter.finagle Service Http)
              (com.twitter.finagle.http Request Response Status)
@@ -97,7 +98,7 @@
     )
 )
 
-(defn- handle-create-loan [repository request]
+(defn- handle-create-loan [repository event-publisher request]
     (try
         (let [request-body (parse-json-request request)
               principal (get request-body :principal nil)
@@ -107,9 +108,15 @@
               investor-id (get request-body :investor-id nil)
               issuer-id (get request-body :issuer-id nil)]
             (if (and principal rate inception-date term investor-id issuer-id)
-                ;; Check if investor and issuer exists.
-                (let [new-loan (loan-service/create-loan repository principal rate inception-date term (parse-uuid-string investor-id) (parse-uuid-string issuer-id))]
-                    (to-json-response 201 new-loan)
+                (if-let [investor (investor-service/get-investor-by-id repository (parse-uuid-string investor-id))]
+                    (if-let [issuer (issuer-service/get-issuer-by-id repository (parse-uuid-string issuer-id))]
+                        (let [new-loan (loan-service/create-loan repository principal rate inception-date term (parse-uuid-string investor-id) (parse-uuid-string issuer-id))]
+                            (ports/publish-transaction-requested! event-publisher (:id new-loan) (:principal new-loan) (:account-id investor) (:account-id issuer))
+                            (to-json-response 201 new-loan)
+                        )
+                        (to-json-response 404 {:error "Issuer not found!"})
+                    )
+                    (to-json-response 404 {:error "Investor not found!"})
                 )
                 (to-json-response 400 {:error "Malformed body!"})
             )
@@ -132,7 +139,7 @@
     )
 )
 
-(defn create-server [port repository]
+(defn create-server [port repository event-publisher]
     (let [handler (proxy [Service] []
         (apply [request]
             (let [path (.path request) method (.method request)]
@@ -150,7 +157,7 @@
                     (handle-get-issuer repository request)
 
                     (and (= (str method) "POST") (= path "/loans"))
-                    (handle-create-loan repository request)
+                    (handle-create-loan repository event-publisher request)
 
                     (and (= (str method) "GET") (re-matches #"/loans/.*" path))
                     (handle-get-loan repository request)

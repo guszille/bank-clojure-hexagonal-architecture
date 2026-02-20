@@ -67,7 +67,7 @@
             )
             :loans (do
                 (let [query (-> (sql-helpers/insert-into :loans)
-                                (sql-helpers/values [(select-keys item [:id :principal :rate :inception-date :term :investor-id :issuer-id])])
+                                (sql-helpers/values [(select-keys item [:id :principal :rate :inception-date :term :investor-id :issuer-id :status])])
                                 (sql/format)
                             )]
                     (jdbc/execute! ds query)

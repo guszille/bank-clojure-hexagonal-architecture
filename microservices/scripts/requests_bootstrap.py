@@ -44,7 +44,7 @@ def exec_requests_flow_1():
     print("Issuer's account created!")
     print(issuer_account[1])
 
-    # Create a deposit transaction to account 1.
+    # Create a deposit transaction to investor's account.
     payload = {
         "type": "deposit",
         "value": "1000.00M",

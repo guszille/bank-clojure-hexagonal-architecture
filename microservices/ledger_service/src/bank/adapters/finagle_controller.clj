@@ -2,6 +2,7 @@
     (:require [cheshire.core :as json]
               [bank.application.account-service :as account-service]
               [bank.application.transaction-service :as transaction-service]
+              [bank.adapters.util :as util]
     )
     (:import (com.twitter.finagle Service Http)
              (com.twitter.finagle.http Request Response Status)
@@ -9,20 +10,9 @@
     )
 )
 
-(defn- parse-bigdec-fields [m]
-    (into {}
-        (map (fn [[k v]] [k (cond
-            (instance? java.math.BigDecimal v) v
-            (and (string? v) (.endsWith v "M")) (bigdec (subs v 0 (dec (count v))))
-            :else v
-        )]))
-        m
-    )
-)
-
 (defn- parse-json-request [request]
     (let [body (-> request .contentString (json/parse-string true))]
-        (parse-bigdec-fields body)
+        (util/parse-bigdec-fields body)
     )
 )
 
@@ -33,11 +23,6 @@
 
         (Future/value response)
     )
-)
-
-(defn- parse-uuid-string [value]
-    {:pre [(string? value)]}
-    (if (not (clojure.string/blank? value)) (java.util.UUID/fromString value) nil)
 )
 
 (defn- handle-create-account [repository request]
@@ -54,7 +39,7 @@
 )
 
 (defn- handle-get-account [repository request]
-    (if-let [account-id (parse-uuid-string (last (re-find #"/accounts/(.*)" (.path request))))]
+    (if-let [account-id (util/parse-uuid-string (last (re-find #"/accounts/(.*)" (.path request))))]
         (if-let [account (account-service/get-account-by-id repository account-id)]
             (to-json-response 200 account)
             (to-json-response 404 {:error "Account not found!"})
@@ -70,7 +55,7 @@
                 (cond
                     (= type "withdrawal")
                     (if (contains? request-body :source-account-id)
-                        (let [source-account-id (parse-uuid-string (get request-body :source-account-id))
+                        (let [source-account-id (util/parse-uuid-string (get request-body :source-account-id))
                               update-account-handler (account-service/update-account-balance repository source-account-id (* -1 value))
                               new-transaction (transaction-service/create-transaction repository type value source-account-id nil)]
                             (update-account-handler) ;; Commit update.
@@ -82,7 +67,7 @@
 
                     (= type "deposit")
                     (if (contains? request-body :destination-account-id)
-                        (let [destination-account-id (parse-uuid-string (get request-body :destination-account-id))
+                        (let [destination-account-id (util/parse-uuid-string (get request-body :destination-account-id))
                               update-account-handler (account-service/update-account-balance repository destination-account-id value)
                               new-transaction (transaction-service/create-transaction repository type value nil destination-account-id)]
                             (update-account-handler) ;; Commit update.
@@ -94,8 +79,8 @@
 
                     (= type "transfer")
                     (if (and (contains? request-body :source-account-id) (contains? request-body :destination-account-id))
-                        (let [source-account-id (parse-uuid-string (get request-body :source-account-id))
-                              destination-account-id (parse-uuid-string (get request-body :destination-account-id))
+                        (let [source-account-id (util/parse-uuid-string (get request-body :source-account-id))
+                              destination-account-id (util/parse-uuid-string (get request-body :destination-account-id))
                               update-account-handler-1 (account-service/update-account-balance repository source-account-id (* -1 value))
                               update-account-handler-2 (account-service/update-account-balance repository destination-account-id value)
                               new-transaction (transaction-service/create-transaction repository type value source-account-id destination-account-id)]
@@ -119,7 +104,7 @@
 )
 
 (defn- handle-get-transaction [repository request]
-    (if-let [transaction-id (parse-uuid-string (last (re-find #"/transactions/(.*)" (.path request))))]
+    (if-let [transaction-id (util/parse-uuid-string (last (re-find #"/transactions/(.*)" (.path request))))]
         (if-let [transaction (transaction-service/get-transaction-by-id repository transaction-id)]
             (to-json-response 200 transaction)
             (to-json-response 404 {:error "Transaction not found!"})

@@ -4,6 +4,7 @@
               [bank.application.issuer-service :as issuer-service]
               [bank.application.loan-service :as loan-service]
               [bank.ports.event-publisher :as ports]
+              [bank.adapters.util :as util]
     )
     (:import (com.twitter.finagle Service Http)
              (com.twitter.finagle.http Request Response Status)
@@ -11,20 +12,9 @@
     )
 )
 
-(defn- parse-bigdec-fields [m]
-    (into {}
-        (map (fn [[k v]] [k (cond
-            (instance? java.math.BigDecimal v) v
-            (and (string? v) (.endsWith v "M")) (bigdec (subs v 0 (dec (count v))))
-            :else v
-        )]))
-        m
-    )
-)
-
 (defn- parse-json-request [request]
     (let [body (-> request .contentString (json/parse-string true))]
-        (parse-bigdec-fields body)
+        (util/parse-bigdec-fields body)
     )
 )
 
@@ -37,16 +27,11 @@
     )
 )
 
-(defn- parse-uuid-string [value]
-    {:pre [(string? value)]}
-    (if (not (clojure.string/blank? value)) (java.util.UUID/fromString value) nil)
-)
-
 (defn- handle-create-investor [repository request]
     (try
         (let [request-body (parse-json-request request) account-id (get request-body :account-id nil)]
             (if account-id
-                (let [new-investor (investor-service/create-investor repository (parse-uuid-string account-id))]
+                (let [new-investor (investor-service/create-investor repository (util/parse-uuid-string account-id))]
                     (to-json-response 201 new-investor)
                 )
                 (to-json-response 400 {:error "Malformed body!"})
@@ -61,7 +46,7 @@
 )
 
 (defn- handle-get-investor [repository request]
-    (if-let [investor-id (parse-uuid-string (last (re-find #"/investors/(.*)" (.path request))))]
+    (if-let [investor-id (util/parse-uuid-string (last (re-find #"/investors/(.*)" (.path request))))]
         (if-let [investor (investor-service/get-investor-by-id repository investor-id)]
             (to-json-response 200 investor)
             (to-json-response 404 {:error "Investor not found!"})
@@ -74,7 +59,7 @@
     (try
         (let [request-body (parse-json-request request) account-id (get request-body :account-id nil)]
             (if account-id
-                (let [new-issuer (issuer-service/create-issuer repository (parse-uuid-string account-id))]
+                (let [new-issuer (issuer-service/create-issuer repository (util/parse-uuid-string account-id))]
                     (to-json-response 201 new-issuer)
                 )
                 (to-json-response 400 {:error "Malformed body!"})
@@ -89,7 +74,7 @@
 )
 
 (defn- handle-get-issuer [repository request]
-    (if-let [issuer-id (parse-uuid-string (last (re-find #"/issuers/(.*)" (.path request))))]
+    (if-let [issuer-id (util/parse-uuid-string (last (re-find #"/issuers/(.*)" (.path request))))]
         (if-let [issuer (issuer-service/get-issuer-by-id repository issuer-id)]
             (to-json-response 200 issuer)
             (to-json-response 404 {:error "Issuer not found!"})
@@ -108,9 +93,9 @@
               investor-id (get request-body :investor-id nil)
               issuer-id (get request-body :issuer-id nil)]
             (if (and principal rate inception-date term investor-id issuer-id)
-                (if-let [investor (investor-service/get-investor-by-id repository (parse-uuid-string investor-id))]
-                    (if-let [issuer (issuer-service/get-issuer-by-id repository (parse-uuid-string issuer-id))]
-                        (let [new-loan (loan-service/create-loan repository principal rate inception-date term (parse-uuid-string investor-id) (parse-uuid-string issuer-id))]
+                (if-let [investor (investor-service/get-investor-by-id repository (util/parse-uuid-string investor-id))]
+                    (if-let [issuer (issuer-service/get-issuer-by-id repository (util/parse-uuid-string issuer-id))]
+                        (let [new-loan (loan-service/create-loan repository principal rate inception-date term (util/parse-uuid-string investor-id) (util/parse-uuid-string issuer-id))]
                             (ports/publish-transaction-requested! event-publisher (:id new-loan) (:principal new-loan) (:account-id investor) (:account-id issuer))
                             (to-json-response 201 new-loan)
                         )
@@ -130,7 +115,7 @@
 )
 
 (defn- handle-get-loan [repository request]
-    (if-let [loan-id (parse-uuid-string (last (re-find #"/loans/(.*)" (.path request))))]
+    (if-let [loan-id (util/parse-uuid-string (last (re-find #"/loans/(.*)" (.path request))))]
         (if-let [loan (loan-service/get-loan-by-id repository loan-id)]
             (to-json-response 200 loan)
             (to-json-response 404 {:error "Loan not found!"})

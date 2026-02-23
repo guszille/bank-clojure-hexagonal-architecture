@@ -2,6 +2,7 @@
     (:require [cheshire.core :as json]
               [bank.ports.event-publisher :as ports]
               [bank.domain.events :as domain]
+              [bank.adapters.util :as util]
     )
     (:import [org.apache.kafka.clients.producer KafkaProducer ProducerRecord]
              [org.apache.kafka.common.serialization StringSerializer]

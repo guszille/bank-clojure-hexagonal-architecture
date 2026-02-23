@@ -2,19 +2,15 @@
     (:require [cheshire.core :as json]
               [bank.application.loan-service :as loan-service]
               [bank.domain.events :as domain]
+              [bank.adapters.util :as util]
     )
     (:import [org.apache.kafka.clients.consumer KafkaConsumer ConsumerRecords]
              [org.apache.kafka.common.serialization StringDeserializer]
     )
 )
 
-(defn- parse-uuid-string [value]
-    {:pre [(string? value)]}
-    (if (not (clojure.string/blank? value)) (java.util.UUID/fromString value) nil)
-)
-
 (defn handle-transaction-approved! [repository record-value]
-    (let [event-id (parse-uuid-string (get record-value :id nil))
+    (let [event-id (util/parse-uuid-string (get record-value :id nil))
           event (domain/create-transaction-approval-event event-id)]
         (try
             (let [update-loan-handler (loan-service/update-loan-status repository event-id "approved")]
@@ -30,7 +26,7 @@
 )
 
 (defn handle-transaction-denied! [repository record-value]
-    (let [event-id (parse-uuid-string (get record-value :id nil))
+    (let [event-id (util/parse-uuid-string (get record-value :id nil))
           event (domain/create-transaction-approval-event event-id)]
         (try
             (let [update-loan-handler (loan-service/update-loan-status repository event-id "denied")]

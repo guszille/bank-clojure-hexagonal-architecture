@@ -4,39 +4,24 @@
               [bank.application.transaction-service :as transaction-service]
               [bank.ports.event-publisher :as ports]
               [bank.domain.events :as domain]
+              [bank.adapters.util :as util]
     )
     (:import [org.apache.kafka.clients.consumer KafkaConsumer ConsumerRecords]
              [org.apache.kafka.common.serialization StringDeserializer]
     )
 )
 
-(defn- parse-bigdec-fields [m]
-    (into {}
-        (map (fn [[k v]] [k (cond
-            (instance? java.math.BigDecimal v) v
-            (and (string? v) (.endsWith v "M")) (bigdec (subs v 0 (dec (count v))))
-            :else v
-        )]))
-        m
-    )
-)
-
 (defn- parse-json-record [record]
     (let [value (json/parse-string (.value record) true)]
-        (parse-bigdec-fields value)
+        (util/parse-bigdec-fields value)
     )
-)
-
-(defn- parse-uuid-string [value]
-    {:pre [(string? value)]}
-    (if (not (clojure.string/blank? value)) (java.util.UUID/fromString value) nil)
 )
 
 (defn handle-transaction-requested! [repository event-publisher record-value]
-    (let [event-id (parse-uuid-string (get record-value :id nil))
+    (let [event-id (util/parse-uuid-string (get record-value :id nil))
           value (get record-value :value nil)
-          source-account-id (parse-uuid-string (get record-value :source-account-id nil))
-          destination-account-id (parse-uuid-string (get record-value :destination-account-id nil))
+          source-account-id (util/parse-uuid-string (get record-value :source-account-id nil))
+          destination-account-id (util/parse-uuid-string (get record-value :destination-account-id nil))
           event (domain/create-transaction-request-event event-id value source-account-id destination-account-id)]
         (try
             (let [update-account-handler-1 (account-service/update-account-balance repository source-account-id (* -1 value))

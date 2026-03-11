@@ -1,0 +1,78 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-exchange-service:
+    name: Exchange Service Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: "1.12.0.1479"
+
+      - name: Configure git for HTTPS
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Prepare Clojure config dir
+        run: mkdir -p ~/.clojure
+
+      - name: Cache Maven deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-exchange-${{ hashFiles('microservices/exchange_service/deps.edn') }}
+
+      - name: Run tests
+        working-directory: microservices/exchange_service
+        run: clojure -M:test
+
+  test-ledger-service:
+    name: Ledger Service Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: "1.12.0.1479"
+
+      - name: Configure git for HTTPS
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Prepare Clojure config dir
+        run: mkdir -p ~/.clojure
+
+      - name: Cache Maven deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-ledger-${{ hashFiles('microservices/ledger_service/deps.edn') }}
+
+      - name: Run tests
+        working-directory: microservices/ledger_service
+        run: clojure -M:test

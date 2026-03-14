@@ -4,20 +4,9 @@
     )
 )
 
-(def next-available-account-number (atom 1))
-
-(defn get-naan []
-    (let [number (format "%05d" @next-available-account-number)]
-        (swap! next-available-account-number inc)
-        number
-    )
-)
-
 (defn create-account [repository]
     (let [account-id (java.util.UUID/randomUUID)
-          account-number (get-naan)
-          account-balance (bigdec 0.00)
-          account (domain/create-account account-id account-number account-balance)]
+          account (domain/create-account account-id (ports/get-next-account-number repository) (bigdec 0.00))]
         (ports/insert! repository :accounts account)
         account
     )

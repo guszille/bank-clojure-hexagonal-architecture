@@ -1,3 +1,5 @@
+CREATE SEQUENCE account_number_sequence START 1;
+
 CREATE TABLE accounts (
     id UUID PRIMARY KEY,
     number CHAR(5) NOT NULL UNIQUE,

@@ -95,6 +95,11 @@
             )
         )
     )
+    (get-next-account-number [this]
+        (let [result (first (jdbc/execute! ds ["SELECT TO_CHAR(nextval('account_number_sequence'), 'FM00000') AS number"]))]
+            (:number result)
+        )
+    )
 )
 
 (defn create-postgres-repository []

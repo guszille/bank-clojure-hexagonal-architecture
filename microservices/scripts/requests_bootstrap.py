@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import time
 import json
 import urllib.error
 import urllib.request
@@ -30,6 +31,21 @@ def request_json(method: str, url: str, payload: dict | None = None) -> tuple[in
             parsed = {"error": raw}
 
         return e.code, parsed
+
+def poll_loan_until_settled(loan_id: str, timeout_seconds: float = 10.0, interval_seconds: float = 0.25) -> dict:
+    deadline = time.monotonic() + timeout_seconds
+
+    while time.monotonic() < deadline:
+        print(f"Polling loan {loan_id}...")
+
+        _, body = request_json("GET", f"http://localhost:8080/api/exchange/loans/{loan_id}")
+
+        if body.get("status") in ("approved", "denied"):
+            return body
+
+        time.sleep(interval_seconds)
+
+    raise TimeoutError(f"Loan {loan_id} did not settle within {timeout_seconds}s")
 
 def exec_requests_flow_1():
     # Create investor's account.
@@ -87,6 +103,27 @@ def exec_requests_flow_1():
 
     print("Loan created!")
     print(loan[1])
+
+    # Poll the loan until its status leaves "created".
+    loan_id = loan[1]["id"]
+    final_loan = poll_loan_until_settled(loan_id)
+
+    print("Settled loan!")
+    print(final_loan)
+
+    # Retrieve investor's account.
+    investor_account_id = investor_account[1]["id"]
+    updated_investor_account = request_json("GET", f"http://localhost:8080/api/ledger/accounts/{investor_account_id}")
+
+    print("Updated investor's account!")
+    print(updated_investor_account[1])
+
+    # Retrieve issuer's account.
+    issuer_account_id = issuer_account[1]["id"]
+    updated_issuer_account = request_json("GET", f"http://localhost:8080/api/ledger/accounts/{issuer_account_id}")
+
+    print("Updated issuer's account!")
+    print(updated_issuer_account[1])
 
 def main() -> int:
     exec_requests_flow_1()

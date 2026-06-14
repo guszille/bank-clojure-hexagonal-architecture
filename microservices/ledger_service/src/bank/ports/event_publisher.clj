@@ -1,6 +1,8 @@
 (ns bank.ports.event-publisher)
 
+;; An EventPublisher records an outbound event for publication. Implementations write to the transactional outbox on the
+;; supplied transaction connection (tx), so the event is persisted atomically with the business change that produced it.
 (defprotocol EventPublisher
-    (publish-transaction-approved! [this event-id])
-    (publish-transaction-denied! [this event-id])
+    (enqueue-transaction-approved! [this tx event-id])
+    (enqueue-transaction-denied! [this tx event-id])
 )

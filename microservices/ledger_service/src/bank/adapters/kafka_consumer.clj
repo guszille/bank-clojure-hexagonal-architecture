@@ -1,8 +1,6 @@
 (ns bank.adapters.kafka-consumer
     (:require [cheshire.core :as json]
-              [bank.application.account-service :as account-service]
               [bank.application.transaction-service :as transaction-service]
-              [bank.ports.event-publisher :as ports]
               [bank.domain.events :as domain]
               [bank.adapters.util :as util]
     )
@@ -23,21 +21,9 @@
           source-account-id (util/parse-uuid-string (get record-value :source-account-id nil))
           destination-account-id (util/parse-uuid-string (get record-value :destination-account-id nil))
           event (domain/create-transaction-request-event event-id value source-account-id destination-account-id)]
-        (try
-            (let [update-account-handler-1 (account-service/update-account-balance repository source-account-id (* -1 value))
-                  update-account-handler-2 (account-service/update-account-balance repository destination-account-id value)
-                  new-transaction (transaction-service/create-transaction repository "transfer" value source-account-id destination-account-id)]
-                (update-account-handler-1) ;; Commit update 1.
-                (update-account-handler-2) ;; Commit update 2.
-
-                (ports/publish-transaction-approved! event-publisher event-id)
-            )
-            (catch Exception e
-                (println "Ledger consumer failed to create transaction:" (.getMessage e))
-
-                (ports/publish-transaction-denied! event-publisher event-id)
-            )
-        )
+        ;; Settlement records its reply event in the outbox (atomically with the money movement); the relay publishes it. The
+        ;; consumer no longer sends to Kafka itself.
+        (transaction-service/settle-requested-transfer! repository event-publisher event-id value source-account-id destination-account-id)
     )
 )
 

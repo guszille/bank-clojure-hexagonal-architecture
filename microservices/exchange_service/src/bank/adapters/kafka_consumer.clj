@@ -9,35 +9,35 @@
     )
 )
 
+(defn- settle-loan! [repository event-id status]
+    ;; Idempotent: the loan's own status is the dedupe record. A redelivered approval/denial for an already-settled loan is
+    ;; skipped (logged as a duplicate) instead of retried and erroring.
+    (if-let [loan (loan-service/get-loan-by-id repository event-id)]
+        (if (= (get loan :status) "created")
+            (try
+                ((loan-service/update-loan-status repository event-id status)) ;; Commit update.
+                (println "Exchange consumer settled the loan as" status ":" event-id)
+                (catch Exception e
+                    (println "Exchange consumer failed to update loan:" (.getMessage e))
+                )
+            )
+            (println "Exchange consumer skipping already-settled loan (duplicate):" event-id)
+        )
+        (println "Exchange consumer received settlement for unknown loan:" event-id)
+    )
+)
+
 (defn handle-transaction-approved! [repository record-value]
     (let [event-id (util/parse-uuid-string (get record-value :id nil))
           event (domain/create-transaction-approval-event event-id)]
-        (try
-            (let [update-loan-handler (loan-service/update-loan-status repository event-id "approved")]
-                (update-loan-handler) ;; Commit update.
-
-                (println "Exchange consumer approved the loan:" event-id)
-            )
-            (catch Exception e
-                (println "Exchange consumer failed to update loan:" (.getMessage e))
-            )
-        )
+        (settle-loan! repository event-id "approved")
     )
 )
 
 (defn handle-transaction-denied! [repository record-value]
     (let [event-id (util/parse-uuid-string (get record-value :id nil))
-          event (domain/create-transaction-approval-event event-id)]
-        (try
-            (let [update-loan-handler (loan-service/update-loan-status repository event-id "denied")]
-                (update-loan-handler) ;; Commit update.
-
-                (println "Exchange consumer denied the loan:" event-id)
-            )
-            (catch Exception e
-                (println "Exchange consumer failed to update loan:" (.getMessage e))
-            )
-        )
+          event (domain/create-transaction-denial-event event-id)]
+        (settle-loan! repository event-id "denied")
     )
 )
 

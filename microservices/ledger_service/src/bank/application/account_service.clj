@@ -12,10 +12,12 @@
     )
 )
 
-(defn update-account-balance [repository id value]
-    (if-let [current-account (ports/get-by-id repository :accounts id)]
-        (let [updated-account (domain/update-account-balance current-account value)]
-            (fn [] (ports/update! repository :accounts id {:balance (get updated-account :balance)}))
+(defn apply-balance-delta! [tx id delta]
+    ;; Locks the account row, applies the delta through the domain (which enforces balance >= 0), and persists the new balance.
+    ;; Must run inside a (ports/with-tx ...) body.
+    (if-let [current-account (ports/get-for-update tx :accounts id)]
+        (let [updated-account (domain/update-account-balance current-account delta)]
+            (ports/update! tx :accounts id {:balance (get updated-account :balance)})
         )
         (throw (ex-info "Account not found!" {:id id}))
     )

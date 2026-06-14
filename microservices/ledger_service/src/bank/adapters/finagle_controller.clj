@@ -56,10 +56,7 @@
                     (= type "withdrawal")
                     (if (contains? request-body :source-account-id)
                         (let [source-account-id (util/parse-uuid-string (get request-body :source-account-id))
-                              update-account-handler (account-service/update-account-balance repository source-account-id (* -1 value))
-                              new-transaction (transaction-service/create-transaction repository type value source-account-id nil)]
-                            (update-account-handler) ;; Commit update.
-
+                              new-transaction (transaction-service/withdraw! repository value source-account-id)]
                             (to-json-response 201 new-transaction)
                         )
                         (to-json-response 400 {:error "Malformed body!"})
@@ -68,10 +65,7 @@
                     (= type "deposit")
                     (if (contains? request-body :destination-account-id)
                         (let [destination-account-id (util/parse-uuid-string (get request-body :destination-account-id))
-                              update-account-handler (account-service/update-account-balance repository destination-account-id value)
-                              new-transaction (transaction-service/create-transaction repository type value nil destination-account-id)]
-                            (update-account-handler) ;; Commit update.
-
+                              new-transaction (transaction-service/deposit! repository value destination-account-id)]
                             (to-json-response 201 new-transaction)
                         )
                         (to-json-response 400 {:error "Malformed body!"})
@@ -81,16 +75,14 @@
                     (if (and (contains? request-body :source-account-id) (contains? request-body :destination-account-id))
                         (let [source-account-id (util/parse-uuid-string (get request-body :source-account-id))
                               destination-account-id (util/parse-uuid-string (get request-body :destination-account-id))
-                              update-account-handler-1 (account-service/update-account-balance repository source-account-id (* -1 value))
-                              update-account-handler-2 (account-service/update-account-balance repository destination-account-id value)
-                              new-transaction (transaction-service/create-transaction repository type value source-account-id destination-account-id)]
-                            (update-account-handler-1) ;; Commit update 1.
-                            (update-account-handler-2) ;; Commit update 2.
-
+                              new-transaction (transaction-service/transfer! repository value source-account-id destination-account-id)]
                             (to-json-response 201 new-transaction)
                         )
                         (to-json-response 400 {:error "Malformed body!"})
                     )
+
+                    :else
+                    (to-json-response 400 {:error "Malformed body!"})
                 )
                 (to-json-response 400 {:error "Malformed body!"})
             )

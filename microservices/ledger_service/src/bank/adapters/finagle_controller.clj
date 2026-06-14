@@ -18,7 +18,7 @@
 
 (defn- to-json-response [status-code body]
     (let [response (Response/apply (Status/fromCode status-code))]
-        (.setContentString response (json/generate-string body))
+        (.setContentString response (json/generate-string (util/compose-bigdec-fields body)))
         (.put (.headerMap response) "content-type" "application/json; charset=utf-8")
 
         (Future/value response)

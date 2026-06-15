@@ -63,6 +63,40 @@ sequenceDiagram
     E-->>C: status
 ```
 
+The diagram shows the logical flow; the section below explains how each hop is made durable.
+
+## Reliability & consistency
+
+The two services coordinate over Kafka, which delivers **at least once**. To keep money from being lost, double-counted, or left half-applied, three mechanisms work together.
+
+### Transactional operations
+
+Every money movement runs as a single database transaction through a `with-tx` unit-of-work port: the application layer expresses *"do this atomically"*, and the Postgres adapter binds one transacted connection for the whole unit.
+
+- **Ledger** — a deposit, withdrawal, or transfer updates balances **and** inserts the transaction row all-or-nothing. A transfer locks both account rows (`SELECT … FOR UPDATE`, in a sorted order to avoid deadlocks) and enforces `balance >= 0` in the domain, so concurrent transfers can't lose updates or overdraw.
+- **Exchange** — creating a loan inserts the loan **and** enqueues its settlement event in one transaction (see the outbox below).
+
+If any step fails, the whole unit rolls back and nothing is written.
+
+### Idempotent consumers
+
+Because Kafka can redeliver, a consumer may see the same event twice. Handlers are idempotent, so reprocessing is a no-op:
+
+- **Ledger** keeps a `processed_events` **inbox**. Settlement records the event's outcome (`approved` / `denied`) in the *same transaction* as the money movement; a redelivered event replays the recorded outcome instead of moving money again (and a denial stays a denial).
+- **Exchange** uses the loan's own status as the dedupe record — a settlement for a loan that is no longer `created` is skipped.
+
+### Transactional outbox
+
+Publishing to Kafka right after a DB commit is a dual-write: a crash in between would lose the event. Instead, a producer writes the event into an `outbox` table **in the same transaction** as the business change. A background **relay** polls unsent rows and publishes them to Kafka, marking a row sent only after the broker acknowledges — so a crash simply re-sends it.
+
+State change and event publication are therefore atomic. Combined with idempotent consumers, the round-trip achieves an end-to-end **exactly-once effect** over at-least-once transport.
+
+| Concern                  | Ledger                             | Exchange                |
+|--------------------------|------------------------------------|-------------------------|
+| Unit-of-work transaction | balances + transaction row         | loan + outbox row       |
+| Idempotency record       | `processed_events` inbox           | loan `status`           |
+| Outbox events            | `Transaction.approved` / `.denied` | `Transaction.requested` |
+
 ## Requirements
 
 - Docker (with Compose v2).
@@ -168,6 +202,5 @@ Both suites also run on every push and pull request via [`.github/workflows/test
 ## Next steps
 
 - Tighten the domain layer toward DDD (aggregates, value objects, invariants on update).
-- Make Kafka consumers idempotent and add an outbox pattern for reliable publication.
 - Add integration tests that exercise the full Kafka round-trip with Testcontainers.
 - Document error responses and add input validation at the controller boundary.

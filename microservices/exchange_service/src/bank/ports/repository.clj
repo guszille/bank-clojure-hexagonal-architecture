@@ -6,6 +6,6 @@
     (update! [this table id args])
     (delete! [this table id])
     (get-by-id [this table id])
-    (unsent-outbox-events [this])
+    (get-unsent-outbox-events [this])
     (mark-outbox-sent! [this id])
 )

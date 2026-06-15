@@ -8,6 +8,6 @@
     (get-by-id [this table id])
     (get-for-update [this table id])
     (get-next-account-number [this])
-    (unsent-outbox-events [this])
+    (get-unsent-outbox-events [this])
     (mark-outbox-sent! [this id])
 )

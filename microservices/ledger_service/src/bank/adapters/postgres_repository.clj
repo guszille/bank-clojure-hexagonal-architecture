@@ -142,7 +142,7 @@
             (:number result)
         )
     )
-    (unsent-outbox-events [this]
+    (get-unsent-outbox-events [this]
         (jdbc/execute! ds ["SELECT * FROM outbox WHERE sent_at IS NULL ORDER BY created_at"])
     )
     (mark-outbox-sent! [this id]

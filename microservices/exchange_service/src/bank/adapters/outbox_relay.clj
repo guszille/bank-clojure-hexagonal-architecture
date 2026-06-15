@@ -15,7 +15,7 @@
         (future
             (while true
                 (try
-                    (doseq [row (ports/unsent-outbox-events repository)]
+                    (doseq [row (ports/get-unsent-outbox-events repository)]
                         (let [record (ProducerRecord. (:topic row) (:event_key row) (:payload row))]
                             (.get (.send producer record)) ;; Block until the broker acks before marking sent.
                             (ports/mark-outbox-sent! repository (:id row))

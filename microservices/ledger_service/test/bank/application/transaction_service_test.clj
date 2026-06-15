@@ -65,7 +65,7 @@
                         (get @(tbl table) id)
                     )
                     (get-next-account-number [this] "00001")
-                    (unsent-outbox-events [this] (vec (vals @outbox)))
+                    (get-unsent-outbox-events [this] (vec (vals @outbox)))
                     (mark-outbox-sent! [this id] (swap! outbox dissoc id))
                 )
          }

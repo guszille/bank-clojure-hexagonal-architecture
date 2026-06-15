@@ -19,8 +19,9 @@
     :password (System/getenv "DB_PASSWORD")
 })
 
+(def rs-opts {:builder-fn jdbc-rs/as-unqualified-lower-maps})
 (def base-ds (jdbc/get-datasource db-config))
-(def ds (jdbc/with-options base-ds {:builder-fn jdbc-rs/as-unqualified-lower-maps}))
+(def ds (jdbc/with-options base-ds rs-opts))
 
 (defn- snake-keys->kebab [m]
     (into {}
@@ -45,6 +46,14 @@
 (defrecord PostgresRepository [ds]
     ports/Repository
 
+    (with-tx [this f]
+        ;; Runs f against a repository bound to a single transacted connection, so every port call inside f shares one DB
+        ;; transaction (all-or-nothing). The transacted connection is re-wrapped with rs-opts so result-set keys stay
+        ;; unqualified.
+        (jdbc/with-transaction [tx ds]
+            (f (->PostgresRepository (jdbc/with-options tx rs-opts)))
+        )
+    )
     (insert! [this table item]
         (case table
             :investors (do
@@ -68,6 +77,15 @@
             :loans (do
                 (let [query (-> (sql-helpers/insert-into :loans)
                                 (sql-helpers/values [(select-keys item [:id :principal :rate :inception-date :term :investor-id :issuer-id :status])])
+                                (sql/format)
+                            )]
+                    (jdbc/execute! ds query)
+                    item
+                )
+            )
+            :outbox (do
+                (let [query (-> (sql-helpers/insert-into :outbox)
+                                (sql-helpers/values [(select-keys item [:id :topic :event-key :payload])])
                                 (sql/format)
                             )]
                     (jdbc/execute! ds query)
@@ -109,6 +127,12 @@
                 :loans (do (when result (row->loan result)))
             )
         )
+    )
+    (unsent-outbox-events [this]
+        (jdbc/execute! ds ["SELECT * FROM outbox WHERE sent_at IS NULL ORDER BY created_at"])
+    )
+    (mark-outbox-sent! [this id]
+        (jdbc/execute! ds ["UPDATE outbox SET sent_at = now() WHERE id = ?" id])
     )
 )
 

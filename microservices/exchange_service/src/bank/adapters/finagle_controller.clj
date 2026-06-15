@@ -3,7 +3,6 @@
               [bank.application.investor-service :as investor-service]
               [bank.application.issuer-service :as issuer-service]
               [bank.application.loan-service :as loan-service]
-              [bank.ports.event-publisher :as ports]
               [bank.adapters.util :as util]
     )
     (:import (com.twitter.finagle Service Http)
@@ -95,8 +94,7 @@
             (if (and principal rate inception-date term investor-id issuer-id)
                 (if-let [investor (investor-service/get-investor-by-id repository (util/parse-uuid-string investor-id))]
                     (if-let [issuer (issuer-service/get-issuer-by-id repository (util/parse-uuid-string issuer-id))]
-                        (let [new-loan (loan-service/create-loan repository principal rate inception-date term (util/parse-uuid-string investor-id) (util/parse-uuid-string issuer-id))]
-                            (ports/publish-transaction-requested! event-publisher (:id new-loan) (:principal new-loan) (:account-id investor) (:account-id issuer))
+                        (let [new-loan (loan-service/create-loan! repository event-publisher principal rate inception-date term investor issuer)]
                             (to-json-response 201 new-loan)
                         )
                         (to-json-response 404 {:error "Issuer not found!"})

@@ -1,14 +1,24 @@
 (ns bank.application.loan-service
     (:require [bank.domain.loan :as domain]
               [bank.ports.repository :as ports]
+              [bank.ports.event-publisher :as event-ports]
     )
 )
 
-(defn create-loan [repository principal rate inception-date term investor-id issuer-id]
-    (let [loan-id (java.util.UUID/randomUUID)
-          loan (domain/create-loan loan-id principal rate inception-date term investor-id issuer-id "created")]
-        (ports/insert! repository :loans loan)
-        loan
+(defn create-loan! [repository event-publisher principal rate inception-date term investor issuer]
+    ;; Creates the loan and enqueues the Transaction.requested settlement event in one transaction, so the loan can't be
+    ;; persisted without its settlement request (or vice versa). The relay publishes the queued event to Kafka. investor and
+    ;; issuer are the resolved records, whose :id becomes the loan's party and whose :account-id becomes the transfer's
+    ;; source/destination.
+    (ports/with-tx repository
+        (fn [tx]
+            (let [loan-id (java.util.UUID/randomUUID)
+                  loan (domain/create-loan loan-id principal rate inception-date term (:id investor) (:id issuer) "created")]
+                (ports/insert! tx :loans loan)
+                (event-ports/enqueue-transaction-requested! event-publisher tx loan-id (:principal loan) (:account-id investor) (:account-id issuer))
+                loan
+            )
+        )
     )
 )
 

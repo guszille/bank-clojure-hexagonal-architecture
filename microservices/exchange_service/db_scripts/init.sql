@@ -27,8 +27,8 @@ CREATE TABLE loans (
     status VARCHAR(50) NOT NULL
 );
 
--- Transactional outbox: producers write the event to publish here, in the same transaction as the
--- business change. A relay drains unsent rows to Kafka, so the DB change and the publish can't diverge.
+-- Transactional outbox: producers write the event to publish here, in the same transaction as the business change. A relay
+-- drains unsent rows to Kafka, so the DB change and the publish can't diverge.
 CREATE TABLE outbox (
     id UUID PRIMARY KEY,
     topic VARCHAR(255) NOT NULL,

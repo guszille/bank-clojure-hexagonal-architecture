@@ -114,17 +114,34 @@ EXCHANGE_SERVICE_POSTGRES_PASSWORD=changeme
 
 ## Build & run
 
-From the `microservices/` directory:
+From the `microservices/` directory, with Docker running:
 
 ```bash
-docker compose down -v --remove-orphans
-docker compose build --no-cache
-docker compose --env-file .env up
+# day to day — cached build, keeps data:
+docker compose build && docker compose up -d
+
+# clean slate — wipes volumes so init.sql re-runs (needed after a schema change):
+docker compose down -v --remove-orphans && docker compose build && docker compose up -d
 ```
 
-On Windows you can run the same commands via `build.cmd`.
+Convenience runners wrap these. On Windows, `stack.cmd`:
 
-Once everything is up, the public API is available at `http://localhost:8080`.
+```cmd
+stack up      :: build (cached) and start in the background
+stack reset   :: wipe data, rebuild, start
+stack logs    :: tail logs (e.g. "stack logs ledger-service-app" for one service)
+stack down    :: stop, keeping data
+```
+
+Or cross-platform with GNU Make (from `microservices/`): `make up`, `make reset`, `make logs` (`make logs SVC=<service>`), `make down`.
+
+Once everything is up, the public API is at `http://localhost:8080`, and a few dashboards come up alongside it:
+
+| Tool     | URL                     | For                                  |
+|----------|-------------------------|--------------------------------------|
+| Dozzle   | `http://localhost:8081` | container logs                       |
+| Kafka UI | `http://localhost:8082` | topics, messages, consumer-group lag |
+| Adminer  | `http://localhost:8083` | both Postgres databases              |
 
 ## API
 

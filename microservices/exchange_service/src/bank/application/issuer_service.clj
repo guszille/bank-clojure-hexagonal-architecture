@@ -15,3 +15,7 @@
 (defn get-issuer-by-id [repository id]
     (ports/get-by-id repository :issuers id)
 )
+
+(defn get-all-issuers [repository]
+    (ports/get-all repository :issuers)
+)

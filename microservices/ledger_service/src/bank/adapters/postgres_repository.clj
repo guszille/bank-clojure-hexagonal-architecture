@@ -10,13 +10,12 @@
 )
 
 (def db-config {
-    :dbtype   "postgresql"
-    :dbname   (System/getenv "DB_NAME")
-    :host     (or (System/getenv "DB_HOST") "localhost")
-    :port     (Integer/parseInt (or (System/getenv "DB_PORT") "5432"))
-    :user     (System/getenv "DB_USER")
-    :password (System/getenv "DB_PASSWORD")
-})
+    :dbtype "postgresql"
+    :dbname (System/getenv "DB_NAME")
+    :host (or (System/getenv "DB_HOST") "localhost")
+    :port (Integer/parseInt (or (System/getenv "DB_PORT") "5432"))
+    :user (System/getenv "DB_USER")
+    :password (System/getenv "DB_PASSWORD")})
 
 (def rs-opts {:builder-fn jdbc-rs/as-unqualified-lower-maps})
 (def base-ds (jdbc/get-datasource db-config))
@@ -27,7 +26,8 @@
         (map (fn [[k v]]
             [(-> k name (clojure.string/replace "_" "-") keyword) v]
         ))
-    m)
+        m
+    )
 )
 
 (defn- row->account [row]
@@ -120,6 +120,18 @@
                 :accounts (do (when result (row->account result)))
                 :transactions (do (when result (row->transaction result)))
                 :processed-events result
+            )
+        )
+    )
+    (get-all [this table]
+        (let [query (-> (sql-helpers/select :*)
+                        (sql-helpers/from table)
+                        (sql/format)
+                    )
+              rows (jdbc/execute! ds query)]
+            (case table
+                :accounts (mapv row->account rows)
+                :transactions (mapv row->transaction rows)
             )
         )
     )

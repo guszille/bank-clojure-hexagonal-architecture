@@ -17,59 +17,58 @@
 (defn- fake-repo
     ([initial-accounts] (fake-repo initial-accounts {}))
     ([initial-accounts {:keys [fail-transaction-insert?]}]
-     (let [accounts (atom initial-accounts)
-           transactions (atom {})
-           processed-events (atom {})
-           outbox (atom {})
-           tbl (fn [t] (case t :accounts accounts :transactions transactions :processed-events processed-events :outbox outbox))]
-         {:accounts accounts
-          :transactions transactions
-          :processed-events processed-events
-          :outbox outbox
-          :repo (reify ports/Repository
-                    (with-tx [this f]
-                        (let [accounts-snapshot @accounts
-                              transactions-snapshot @transactions
-                              processed-snapshot @processed-events
-                              outbox-snapshot @outbox]
-                            (try
-                                (f this)
-                                (catch Throwable e
-                                    (reset! accounts accounts-snapshot)
-                                    (reset! transactions transactions-snapshot)
-                                    (reset! processed-events processed-snapshot)
-                                    (reset! outbox outbox-snapshot)
-                                    (throw e)
-                                )
-                            )
-                        )
-                    )
-                    (insert! [this table item]
-                        (when (and fail-transaction-insert? (= table :transactions))
-                            (throw (ex-info "Simulated insert failure" {:table table}))
-                        )
-                        (swap! (tbl table) assoc (:id item) item)
-                        item
-                    )
-                    (update! [this table id args]
-                        (swap! (tbl table) update id merge args)
-                        (get @(tbl table) id)
-                    )
-                    (delete! [this table id]
-                        (swap! (tbl table) dissoc id)
-                    )
-                    (get-by-id [this table id]
-                        (get @(tbl table) id)
-                    )
-                    (get-for-update [this table id]
-                        (get @(tbl table) id)
-                    )
-                    (get-next-account-number [this] "00001")
-                    (get-unsent-outbox-events [this] (vec (vals @outbox)))
-                    (mark-outbox-sent! [this id] (swap! outbox dissoc id))
-                )
-         }
-    )
+        (let [accounts (atom initial-accounts)
+              transactions (atom {})
+              processed-events (atom {})
+              outbox (atom {})
+              tbl (fn [t] (case t :accounts accounts :transactions transactions :processed-events processed-events :outbox outbox))]
+            {:accounts accounts
+             :transactions transactions
+             :processed-events processed-events
+             :outbox outbox
+             :repo (reify ports/Repository
+                 (with-tx [this f]
+                     (let [accounts-snapshot @accounts
+                           transactions-snapshot @transactions
+                           processed-snapshot @processed-events
+                           outbox-snapshot @outbox]
+                         (try
+                             (f this)
+                             (catch Throwable e
+                                 (reset! accounts accounts-snapshot)
+                                 (reset! transactions transactions-snapshot)
+                                 (reset! processed-events processed-snapshot)
+                                 (reset! outbox outbox-snapshot)
+                                 (throw e)
+                             )
+                         )
+                     )
+                 )
+                 (insert! [this table item]
+                     (when (and fail-transaction-insert? (= table :transactions))
+                         (throw (ex-info "Simulated insert failure" {:table table}))
+                     )
+                     (swap! (tbl table) assoc (:id item) item)
+                     item
+                 )
+                 (update! [this table id args]
+                     (swap! (tbl table) update id merge args)
+                     (get @(tbl table) id)
+                 )
+                 (delete! [this table id]
+                     (swap! (tbl table) dissoc id)
+                 )
+                 (get-by-id [this table id]
+                     (get @(tbl table) id)
+                 )
+                 (get-for-update [this table id]
+                     (get @(tbl table) id)
+                 )
+                 (get-next-account-number [this] "00001")
+                 (get-unsent-outbox-events [this] (vec (vals @outbox)))
+                 (mark-outbox-sent! [this id] (swap! outbox dissoc id))
+             )}
+        )
     )
 )
 
@@ -101,7 +100,8 @@
           (fake-repo {src-id (account/->Account src-id "00001" 50.00M)
                       dest-id (account/->Account dest-id "00002" 0.00M)})]
         (is (thrown? clojure.lang.ExceptionInfo
-                (transaction-service/transfer! repo 100.00M src-id dest-id)))
+            (transaction-service/transfer! repo 100.00M src-id dest-id)
+        ))
         (testing "balances are unchanged"
             (is (= 50.00M (:balance (get @accounts src-id))))
             (is (= 0.00M (:balance (get @accounts dest-id))))
@@ -118,9 +118,11 @@
           {:keys [repo accounts transactions]}
           (fake-repo {src-id (account/->Account src-id "00001" 100.00M)
                       dest-id (account/->Account dest-id "00002" 0.00M)}
-                     {:fail-transaction-insert? true})]
+              {:fail-transaction-insert? true}
+          )]
         (is (thrown? clojure.lang.ExceptionInfo
-                (transaction-service/transfer! repo 30.00M src-id dest-id)))
+            (transaction-service/transfer! repo 30.00M src-id dest-id)
+        ))
         (testing "both balance updates are rolled back when the transaction insert fails"
             (is (= 100.00M (:balance (get @accounts src-id))))
             (is (= 0.00M (:balance (get @accounts dest-id))))
@@ -136,7 +138,8 @@
           {:keys [repo accounts transactions]}
           (fake-repo {id (account/->Account id "00001" 100.00M)})]
         (is (thrown? clojure.lang.ExceptionInfo
-                (transaction-service/transfer! repo 10.00M id id)))
+            (transaction-service/transfer! repo 10.00M id id)
+        ))
         (testing "the balance is untouched and no transaction is recorded"
             (is (= 100.00M (:balance (get @accounts id))))
             (is (empty? @transactions))

@@ -11,13 +11,12 @@
 )
 
 (def db-config {
-    :dbtype   "postgresql"
-    :dbname   (System/getenv "DB_NAME")
-    :host     (or (System/getenv "DB_HOST") "localhost")
-    :port     (Integer/parseInt (or (System/getenv "DB_PORT") "5432"))
-    :user     (System/getenv "DB_USER")
-    :password (System/getenv "DB_PASSWORD")
-})
+    :dbtype "postgresql"
+    :dbname (System/getenv "DB_NAME")
+    :host (or (System/getenv "DB_HOST") "localhost")
+    :port (Integer/parseInt (or (System/getenv "DB_PORT") "5432"))
+    :user (System/getenv "DB_USER")
+    :password (System/getenv "DB_PASSWORD")})
 
 (def rs-opts {:builder-fn jdbc-rs/as-unqualified-lower-maps})
 (def base-ds (jdbc/get-datasource db-config))
@@ -28,7 +27,8 @@
         (map (fn [[k v]]
             [(-> k name (clojure.string/replace "_" "-") keyword) v]
         ))
-    m)
+        m
+    )
 )
 
 (defn- row->investor [row]
@@ -125,6 +125,19 @@
                 :investors (do (when result (row->investor result)))
                 :issuers (do (when result (row->issuer result)))
                 :loans (do (when result (row->loan result)))
+            )
+        )
+    )
+    (get-all [this table]
+        (let [query (-> (sql-helpers/select :*)
+                        (sql-helpers/from table)
+                        (sql/format)
+                    )
+              rows (jdbc/execute! ds query)]
+            (case table
+                :investors (mapv row->investor rows)
+                :issuers (mapv row->issuer rows)
+                :loans (mapv row->loan rows)
             )
         )
     )

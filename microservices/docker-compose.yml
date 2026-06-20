@@ -87,6 +87,15 @@ services:
       - exchange-service-db
       - kafka
 
+  # ClojureScript SPA. Reached only through the reverse proxy (no host port), so it stays same-origin with the API and needs no
+  # CORS handling.
+  frontend-app:
+    build:
+      context: ./frontend_service
+      dockerfile: dockerfile
+    image: frontend-service-app:latest
+    container_name: frontend-app
+
   reverse-proxy:
     build:
       context: ./reverse_proxy
@@ -100,6 +109,7 @@ services:
     depends_on:
       - ledger-service-app
       - exchange-service-app
+      - frontend-app
 
   # --- Observability (Tier 1) -------------------------------------------------------------------------------------------------
   # Live log viewer across all containers. Reads the Docker socket (read-only).

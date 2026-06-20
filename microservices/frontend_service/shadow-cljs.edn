@@ -1,0 +1,18 @@
+;; Build config for the ClojureScript SPA. Dependencies are declared here (not deps.edn) so the Docker
+;; build only needs Node + a JRE -- shadow-cljs resolves the Maven deps itself, no Clojure CLI required.
+{:source-paths ["src"]
+
+ :dependencies [[reagent "1.2.0"]
+                [re-frame "1.4.3"]
+                [day8.re-frame/http-fx "0.2.4"]
+                [cljs-ajax "0.8.4"]
+                [metosin/reitit-frontend "0.7.2"]]
+
+ ;; Dev server for `npx shadow-cljs watch app` -> http://localhost:8280
+ :dev-http {8280 "resources/public"}
+
+ :builds {:app {:target     :browser
+                :output-dir "resources/public/js"
+                :asset-path "/js"
+                :modules    {:main {:init-fn bank-ui.core/init}}
+                :devtools   {:after-load bank-ui.core/mount-root}}}}

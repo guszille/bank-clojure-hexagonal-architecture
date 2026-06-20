@@ -15,3 +15,7 @@
 (defn get-investor-by-id [repository id]
     (ports/get-by-id repository :investors id)
 )
+
+(defn get-all-investors [repository]
+    (ports/get-all repository :investors)
+)

@@ -19,37 +19,39 @@
         {:loans loans
          :outbox outbox
          :repo (reify ports/Repository
-                   (with-tx [this f]
-                       (let [loans-snapshot @loans
-                             outbox-snapshot @outbox]
-                           (try
-                               (f this)
-                               (catch Throwable e
-                                   (reset! loans loans-snapshot)
-                                   (reset! outbox outbox-snapshot)
-                                   (throw e)
-                               )
-                           )
-                       )
-                   )
-                   (insert! [this table item]
-                       (swap! (tbl table) assoc (:id item) item)
-                       item
-                   )
-                   (update! [this table id args]
-                       (swap! (tbl table) update id merge args)
-                       (get @(tbl table) id)
-                   )
-                   (delete! [this table id]
-                       (swap! (tbl table) dissoc id)
-                   )
-                   (get-by-id [this table id]
-                       (get @(tbl table) id)
-                   )
-                   (get-unsent-outbox-events [this] (vec (vals @outbox)))
-                   (mark-outbox-sent! [this id] (swap! outbox dissoc id))
-               )
-        }
+             (with-tx [this f]
+                 (let [loans-snapshot @loans
+                       outbox-snapshot @outbox]
+                     (try
+                         (f this)
+                         (catch Throwable e
+                             (reset! loans loans-snapshot)
+                             (reset! outbox outbox-snapshot)
+                             (throw e)
+                         )
+                     )
+                 )
+             )
+             (insert! [this table item]
+                 (swap! (tbl table) assoc (:id item) item)
+                 item
+             )
+             (update! [this table id args]
+                 (swap! (tbl table) update id merge args)
+                 (get @(tbl table) id)
+             )
+             (delete! [this table id]
+                 (swap! (tbl table) dissoc id)
+             )
+             (get-by-id [this table id]
+                 (get @(tbl table) id)
+             )
+             (get-all [this table]
+                 (vec (vals @(tbl table)))
+             )
+             (get-unsent-outbox-events [this] (vec (vals @outbox)))
+             (mark-outbox-sent! [this id] (swap! outbox dissoc id))
+         )}
     )
 )
 
@@ -70,6 +72,27 @@
             (let [row (first (vals @outbox))]
                 (is (= "Transaction.requested" (:topic row)))
                 (is (= (str (:id loan)) (:event-key row)))
+            )
+        )
+    )
+)
+
+(deftest get-all-loans-returns-every-created-loan
+    (let [investor-account-id (UUID/randomUUID)
+          issuer-account-id (UUID/randomUUID)
+          inv (investor/->Investor (UUID/randomUUID) investor-account-id)
+          iss (issuer/->Issuer (UUID/randomUUID) issuer-account-id)
+          {:keys [repo]} (fake-repo)
+          publisher (outbox-publisher/create-publisher)]
+        (testing "an empty repository lists no loans"
+            (is (= [] (loan-service/get-all-loans repo)))
+        )
+        (let [a (loan-service/create-loan! repo publisher 100.00M 10.00M "2025-01-01" 6 inv iss)
+              b (loan-service/create-loan! repo publisher 200.00M 5.00M "2025-02-01" 12 inv iss)
+              listed (loan-service/get-all-loans repo)]
+            (testing "every created loan is returned"
+                (is (= 2 (count listed)))
+                (is (= #{(:id a) (:id b)} (set (map :id listed))))
             )
         )
     )

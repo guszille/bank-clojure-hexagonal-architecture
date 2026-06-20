@@ -76,3 +76,38 @@ jobs:
       - name: Run tests
         working-directory: microservices/ledger_service
         run: clojure -M:test
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: "1.12.0.1479"
+
+      - name: Configure git for HTTPS
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Prepare Clojure config dir
+        run: mkdir -p ~/.clojure
+
+      - name: Cache Maven deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-fmt-${{ hashFiles('microservices/tools/fmt/deps.edn') }}
+
+      - name: Check formatting
+        working-directory: microservices/tools/fmt
+        run: clojure -M:run check ../../ledger_service ../../exchange_service ../../frontend_service

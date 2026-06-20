@@ -89,3 +89,7 @@
 (defn get-transaction-by-id [repository id]
     (ports/get-by-id repository :transactions id)
 )
+
+(defn get-all-transactions [repository]
+    (ports/get-all repository :transactions)
+)

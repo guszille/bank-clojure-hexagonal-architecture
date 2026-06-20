@@ -17,8 +17,11 @@
 )
 
 (defn- to-json-response [status-code body]
-    (let [response (Response/apply (Status/fromCode status-code))]
-        (.setContentString response (json/generate-string (util/compose-bigdec-fields body)))
+    (let [response (Response/apply (Status/fromCode status-code))
+          ;; Collections (list endpoints) become a JSON array with each element's money fields encoded; a single map keeps
+          ;; the existing behaviour.
+          encoded (if (sequential? body) (mapv util/compose-bigdec-fields body) (util/compose-bigdec-fields body))]
+        (.setContentString response (json/generate-string encoded))
         (.put (.headerMap response) "content-type" "application/json; charset=utf-8")
 
         (Future/value response)
@@ -46,6 +49,10 @@
         )
         (to-json-response 400 {:error "Invalid account ID!"})
     )
+)
+
+(defn- handle-list-accounts [repository request]
+    (to-json-response 200 (account-service/get-all-accounts repository))
 )
 
 (defn- handle-create-transaction [repository request]
@@ -105,6 +112,10 @@
     )
 )
 
+(defn- handle-list-transactions [repository request]
+    (to-json-response 200 (transaction-service/get-all-transactions repository))
+)
+
 (defn create-server [port repository event-publisher]
     (let [handler (proxy [Service] []
         (apply [request]
@@ -113,11 +124,17 @@
                     (and (= (str method) "POST") (= path "/accounts"))
                     (handle-create-account repository request)
 
+                    (and (= (str method) "GET") (= path "/accounts"))
+                    (handle-list-accounts repository request)
+
                     (and (= (str method) "GET") (re-matches #"/accounts/.*" path))
                     (handle-get-account repository request)
 
                     (and (= (str method) "POST") (= path "/transactions"))
                     (handle-create-transaction repository request)
+
+                    (and (= (str method) "GET") (= path "/transactions"))
+                    (handle-list-transactions repository request)
 
                     (and (= (str method) "GET") (re-matches #"/transactions/.*" path))
                     (handle-get-transaction repository request)
@@ -126,7 +143,8 @@
                     (to-json-response 404 {})
                 )
             )
-        ))]
+        )
+    )]
         (Http/serve (str ":" port) handler)
     )
 )

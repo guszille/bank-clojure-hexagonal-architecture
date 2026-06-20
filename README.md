@@ -1,8 +1,8 @@
 # Bank — a Clojure microservices demo
 
-A small Bank application written in **Clojure**, structured around **hexagonal architecture** and split into two **microservices** that communicate through **Kafka** events. Each service owns its own **PostgreSQL** database, and a **Nginx** reverse proxy fronts the public API.
+A small Bank application written in **Clojure**, structured around **hexagonal architecture** and split into two **microservices** that communicate through **Kafka** events. Each service owns its own **PostgreSQL** database, a **ClojureScript** single-page app provides the UI, and a **Nginx** reverse proxy fronts both the UI and the public API on one origin.
 
-Built with: Clojure 1.12, Finagle (HTTP), next.jdbc + HoneySQL, PostgreSQL 15, Apache Kafka (KRaft, single-node), Nginx, Docker Compose.
+Built with: Clojure 1.12, Finagle (HTTP), next.jdbc + HoneySQL, PostgreSQL 15, Apache Kafka (KRaft, single-node), ClojureScript (shadow-cljs · Reagent · re-frame), Nginx, Docker Compose.
 
 ## Architecture
 
@@ -25,13 +25,14 @@ adapters/      # Concrete implementations: Finagle HTTP, Postgres, Kafka
 | Component       | Container            | Host port |
 |-----------------|----------------------|-----------|
 | Reverse proxy   | `reverse-proxy`      | `8080`    |
+| Frontend SPA    | `frontend-app`       | _(via proxy)_ |
 | Ledger HTTP     | `ledger-service-app` | `3001`    |
 | Exchange HTTP   | `exchange-service-app` | `3002`  |
 | Ledger DB       | `ledger-service-db`  | `5001`    |
 | Exchange DB     | `exchange-service-db`| `5002`    |
 | Kafka broker    | `kafka`              | `9092`    |
 
-The proxy routes `/api/ledger/*` to the ledger service and `/api/exchange/*` to the exchange service — see [reverse_proxy/nginx.conf](microservices/reverse_proxy/nginx.conf).
+The proxy serves the frontend at `/`, and routes `/api/ledger/*` to the ledger service and `/api/exchange/*` to the exchange service — see [reverse_proxy/nginx.conf](microservices/reverse_proxy/nginx.conf). The SPA has no host port of its own; it is reached only through the proxy, which keeps it same-origin with the API (so no CORS handling is needed).
 
 ### Kafka topics
 
@@ -135,7 +136,7 @@ stack down    :: stop, keeping data
 
 Or cross-platform with GNU Make (from `microservices/`): `make up`, `make reset`, `make logs` (`make logs SVC=<service>`), `make down`.
 
-Once everything is up, the public API is at `http://localhost:8080`, and a few dashboards come up alongside it:
+Once everything is up, the **web UI** is at `http://localhost:8080/`, the public API is under `http://localhost:8080/api/`, and a few dashboards come up alongside them:
 
 | Tool     | URL                     | For                                  |
 |----------|-------------------------|--------------------------------------|
@@ -152,8 +153,10 @@ All endpoints accept and return `application/json`. Money values are encoded as 
 | Method | Path                     | Body                                                                                    | Notes                                                                 |
 |--------|--------------------------|-----------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
 | POST   | `/api/ledger/accounts`   | _(none)_                                                                                | Creates an account with a 5-digit number and balance `0.00`.          |
+| GET    | `/api/ledger/accounts`   | _(none)_                                                                                | Returns all accounts (JSON array).                                    |
 | GET    | `/api/ledger/accounts/:id` | _(none)_                                                                              | Returns the account.                                                  |
 | POST   | `/api/ledger/transactions` | See below                                                                             | `type` ∈ {`deposit`, `withdrawal`, `transfer`}; balance updated atomically. |
+| GET    | `/api/ledger/transactions` | _(none)_                                                                             | Returns all transactions (JSON array).                               |
 | GET    | `/api/ledger/transactions/:id` | _(none)_                                                                          | Returns the transaction.                                              |
 
 Transaction body shape:
@@ -172,10 +175,13 @@ Transaction body shape:
 | Method | Path                       | Body                                  | Notes                                                              |
 |--------|----------------------------|---------------------------------------|--------------------------------------------------------------------|
 | POST   | `/api/exchange/investors`  | `{ "account-id": "<uuid>" }`          | Links an investor to a ledger account.                             |
+| GET    | `/api/exchange/investors`  | _(none)_                              | Returns all investors (JSON array).                                |
 | GET    | `/api/exchange/investors/:id` | _(none)_                           |                                                                    |
 | POST   | `/api/exchange/issuers`    | `{ "account-id": "<uuid>" }`          | Links an issuer to a ledger account.                               |
+| GET    | `/api/exchange/issuers`    | _(none)_                              | Returns all issuers (JSON array).                                  |
 | GET    | `/api/exchange/issuers/:id` | _(none)_                             |                                                                    |
 | POST   | `/api/exchange/loans`      | See below                             | Returns immediately with `status: "created"`; settlement is async. |
+| GET    | `/api/exchange/loans`      | _(none)_                              | Returns all loans (JSON array).                                    |
 | GET    | `/api/exchange/loans/:id`  | _(none)_                              | Status transitions to `approved` or `denied` after Kafka round-trip. |
 
 Loan body:
@@ -190,6 +196,27 @@ Loan body:
   "issuer-id": "<uuid>"
 }
 ```
+
+## Frontend (ClojureScript)
+
+A single-page app under [`microservices/frontend_service`](microservices/frontend_service) to create,
+list, and manage every entity. It keeps the whole stack in one language: **shadow-cljs** build,
+**Reagent** views, **re-frame** state, **reitit** routing, talking to the same `/api/*` endpoints the
+services expose.
+
+- Served by the reverse proxy at `http://localhost:8080/` — same origin as the API, so no CORS.
+- One page per entity (Accounts, Transactions, Investors, Issuers, Loans), each with a create form and
+  a live table backed by the list endpoints above.
+- The **Loans** page shows the async settlement: a new loan starts `created` and the UI polls
+  `GET /loans/:id` until it flips to `approved` or `denied` — making the Kafka/outbox round-trip
+  visible in the browser.
+- Money is handled as the canonical `"…M"` string end-to-end (ClojureScript has no `BigDecimal`); the
+  `bank-ui.util.money` helpers only add/strip the suffix at the wire boundary.
+
+It ships as its own container (multi-stage build: shadow-cljs release → static files on Nginx) and is
+picked up by `make up` / `stack up` with the rest of the stack. For local frontend iteration without
+Docker: from `microservices/frontend_service`, `npm install` then `npm run dev` (shadow-cljs watch on
+`http://localhost:8280`) — note the API still needs the stack running for requests to resolve.
 
 ## Bootstrap script
 
@@ -215,6 +242,27 @@ cd microservices/exchange_service && clojure -M:test
 ```
 
 Both suites also run on every push and pull request via [`.github/workflows/test.yml`](.github/workflows/test.yml).
+
+## Code style & formatting
+
+The codebase uses a deliberate house style — **4-space block indentation** and **exploded closing
+parens** (a multi-line list closes with `)` on its own line, at the list's column). Off-the-shelf Clojure
+formatters can't reproduce it, so the repo ships a small bespoke one under
+[`microservices/tools/fmt`](microservices/tools/fmt) (built on rewrite-clj). It re-indents and normalizes
+spacing but never re-wraps lines, and refuses to write a file unless the reformatted source parses to the
+exact same code (a reparse-equality safety guard).
+
+From `microservices/`:
+
+```bash
+make fmt         # format every .clj/.cljs/.cljc under the services + frontend
+make fmt-check   # verify only; non-zero exit if anything is unformatted
+```
+
+CI runs `make fmt-check` (the **Format Check** job in [`test.yml`](.github/workflows/test.yml)) on every
+push and pull request. The formatter has its own tests: `cd microservices/tools/fmt && clojure -M:test`.
+(Both commands need the Clojure CLI; a JVM-less environment can run the same thing in a container, e.g.
+`docker run --rm -v "$PWD":/w -w /w/tools/fmt clojure:openjdk-17 clojure -M:run check ../../ledger_service ../../exchange_service ../../frontend_service`.)
 
 ## Next steps
 

@@ -26,3 +26,7 @@
 (defn get-account-by-id [repository id]
     (ports/get-by-id repository :accounts id)
 )
+
+(defn get-all-accounts [repository]
+    (ports/get-all repository :accounts)
+)

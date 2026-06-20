@@ -34,3 +34,7 @@
 (defn get-loan-by-id [repository id]
     (ports/get-by-id repository :loans id)
 )
+
+(defn get-all-loans [repository]
+    (ports/get-all repository :loans)
+)

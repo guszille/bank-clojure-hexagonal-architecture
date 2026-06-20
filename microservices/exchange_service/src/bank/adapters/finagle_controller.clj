@@ -18,8 +18,11 @@
 )
 
 (defn- to-json-response [status-code body]
-    (let [response (Response/apply (Status/fromCode status-code))]
-        (.setContentString response (json/generate-string (util/compose-bigdec-fields body)))
+    (let [response (Response/apply (Status/fromCode status-code))
+          ;; Collections (list endpoints) become a JSON array with each element's money fields encoded; a single map keeps
+          ;; the existing behaviour.
+          encoded (if (sequential? body) (mapv util/compose-bigdec-fields body) (util/compose-bigdec-fields body))]
+        (.setContentString response (json/generate-string encoded))
         (.put (.headerMap response) "content-type" "application/json; charset=utf-8")
 
         (Future/value response)
@@ -54,6 +57,10 @@
     )
 )
 
+(defn- handle-list-investors [repository request]
+    (to-json-response 200 (investor-service/get-all-investors repository))
+)
+
 (defn- handle-create-issuer [repository request]
     (try
         (let [request-body (parse-json-request request) account-id (get request-body :account-id nil)]
@@ -80,6 +87,10 @@
         )
         (to-json-response 400 {:error "Invalid issuer ID!"})
     )
+)
+
+(defn- handle-list-issuers [repository request]
+    (to-json-response 200 (issuer-service/get-all-issuers repository))
 )
 
 (defn- handle-create-loan [repository event-publisher request]
@@ -122,6 +133,10 @@
     )
 )
 
+(defn- handle-list-loans [repository request]
+    (to-json-response 200 (loan-service/get-all-loans repository))
+)
+
 (defn create-server [port repository event-publisher]
     (let [handler (proxy [Service] []
         (apply [request]
@@ -130,17 +145,26 @@
                     (and (= (str method) "POST") (= path "/investors"))
                     (handle-create-investor repository request)
 
+                    (and (= (str method) "GET") (= path "/investors"))
+                    (handle-list-investors repository request)
+
                     (and (= (str method) "GET") (re-matches #"/investors/.*" path))
                     (handle-get-investor repository request)
 
                     (and (= (str method) "POST") (= path "/issuers"))
                     (handle-create-issuer repository request)
 
+                    (and (= (str method) "GET") (= path "/issuers"))
+                    (handle-list-issuers repository request)
+
                     (and (= (str method) "GET") (re-matches #"/issuers/.*" path))
                     (handle-get-issuer repository request)
 
                     (and (= (str method) "POST") (= path "/loans"))
                     (handle-create-loan repository event-publisher request)
+
+                    (and (= (str method) "GET") (= path "/loans"))
+                    (handle-list-loans repository request)
 
                     (and (= (str method) "GET") (re-matches #"/loans/.*" path))
                     (handle-get-loan repository request)
@@ -149,7 +173,8 @@
                     (to-json-response 404 {})
                 )
             )
-        ))]
+        )
+    )]
         (Http/serve (str ":" port) handler)
     )
 )

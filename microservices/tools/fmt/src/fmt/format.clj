@@ -1,8 +1,9 @@
 (ns fmt.format
     ;; A small, opinionated Clojure(Script) formatter that reproduces this project's hand-written backend
     ;; style: 4-space block indentation and "exploded" closing parens (a multi-line LIST closes with ')' on
-    ;; its own line, at the list's own column). It re-indents and normalises inner spacing but PRESERVES the
-    ;; author's hard line breaks -- it never re-wraps long lines.
+    ;; its own line, at the list's own column). Keyword-headed (hiccup) vectors get the same block treatment.
+    ;; It re-indents and normalises inner spacing but PRESERVES the author's hard line breaks -- it never
+    ;; re-wraps long lines.
     (:require [rewrite-clj.parser :as p]
               [rewrite-clj.node :as n]
               [clojure.string :as str]
@@ -103,10 +104,12 @@
           [open close] (coll-delims tag)
           ;; Symbol-headed lists block-indent their bodies (+4 from the form's line) and close at the line
           ;; indent; keyword-headed lists (ns :require/:import) and threading macros align under the first
-          ;; argument and close at the opening column.
+          ;; argument and close at the opening column. Keyword-headed vectors are hiccup -- they block-indent
+          ;; and explode like block lists; other vectors/maps/sets align under the first element.
           kind (cond
-                   (#{:vector :map :set} tag)                            :seq
                    (= tag :fn)                                           :align
+                   (and (= tag :vector) (keyword-head? node))           :block
+                   (#{:vector :map :set} tag)                            :seq
                    (and (= tag :list) force-block?)                      :block
                    (and (= tag :list) (keyword-head? node))             :align
                    (and (= tag :list) (contains? threading-forms (head-name node))) :align

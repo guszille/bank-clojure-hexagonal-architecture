@@ -58,6 +58,21 @@
     )
 )
 
+(deftest hiccup-vectors-block-indent-and-explode
+    (testing "a keyword-headed (hiccup) vector block-indents its body +4 and explodes its ']'"
+        (is (= (str "[:section\n"
+                    "    [:h1 \"Accounts\"]\n"
+                    "    [:p \"Body\"]\n"
+                    "]\n")
+               (fmt/format-string "[:section\n [:h1 \"Accounts\"]\n [:p \"Body\"]]\n")
+            )
+        )
+    )
+    (testing "single-line hiccup is left intact"
+        (is (= "[:th \"Number\"]\n" (fmt/format-string "[:th   \"Number\"]\n")))
+    )
+)
+
 (deftest nested-lists-explode-each-level
     (is (= (str "(a\n"
                 "    (b\n"
@@ -92,7 +107,8 @@
     (testing "formatting already-formatted output yields no further change"
         (doseq [src ["(defn foo [x]\n  (let [y (inc x)]\n    (bar y)))\n"
                      "(ns a (:require [b :as b]))\n"
-                     "(defrecord R [x]\n  P\n  (m [this] (do (a) (b))))\n"]]
+                     "(defrecord R [x]\n  P\n  (m [this] (do (a) (b))))\n"
+                     "[:section\n [:h1 \"x\"]\n [:tbody (for [a xs] [:tr [:td a]])]]\n"]]
             (let [once (fmt/format-string src)]
                 (is (= once (fmt/format-string once)) (str "unstable for: " (pr-str src)))
             )

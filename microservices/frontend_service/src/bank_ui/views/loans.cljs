@@ -14,25 +14,29 @@
         "denied" "bad"
         "pending"
     )}
-     status]
+        status
+    ]
 )
 
 (defn- loans-table [loans]
     (if (empty? loans)
         [:p.empty "No loans yet."]
         [:table
-         [:thead [:tr [:th "Status"] [:th "Principal"] [:th "Rate"] [:th "Term"] [:th "Inception"] [:th "ID"]]]
-         [:tbody
-          (for [l loans]
-              ^{:key (:id l)}
-              [:tr
-               [:td (status-badge (:status l))]
-               [:td.money (money/display (:principal l))]
-               [:td.money (money/display (:rate l))]
-               [:td (:term l)]
-               [:td (:inception-date l)]
-               [:td.mono {:title (str (:id l))} (common/short-id (:id l))]]
-          )]]
+            [:thead [:tr [:th "Status"] [:th "Principal"] [:th "Rate"] [:th "Term"] [:th "Inception"] [:th "ID"]]]
+            [:tbody
+                (for [l loans]
+                    ^{:key (:id l)}
+                    [:tr
+                        [:td (status-badge (:status l))]
+                        [:td.money (money/display (:principal l))]
+                        [:td.money (money/display (:rate l))]
+                        [:td (:term l)]
+                        [:td (:inception-date l)]
+                        [:td.mono {:title (str (:id l))} (common/short-id (:id l))]
+                    ]
+                )
+            ]
+        ]
     )
 )
 
@@ -47,34 +51,41 @@
               issuers @(rf/subscribe [::subs/issuers])
               on-val (fn [k] #(swap! form assoc k (.. % -target -value)))]
             [:section
-             [:h1 "Loans"]
-             [:p.hint "Loans settle asynchronously over Kafka — a new loan starts as "
-              [:span.badge.pending "created"] " and updates live to "
-              [:span.badge.ok "approved"] " or " [:span.badge.bad "denied"] "."]
-             [:form.card.loan-form
-              {:on-submit (fn [e]
-                  (.preventDefault e)
-                  (rf/dispatch [::events/create-loan @form])
-                  (reset! form {:term (:term @form)})
-              )}
-              [:label "Principal" [:input {:type "text" :placeholder "1000.00"
-                                           :value (:principal @form "") :on-change (on-val :principal)}]]
-              [:label "Rate" [:input {:type "text" :placeholder "10.00"
-                                      :value (:rate @form "") :on-change (on-val :rate)}]]
-              [:label "Inception date" [:input {:type "date"
-                                                :value (:inception-date @form "") :on-change (on-val :inception-date)}]]
-              [:label "Term (months)" [:input {:type "number" :min 1
-                                               :value (:term @form "") :on-change (on-val :term)}]]
-              [:label "Investor"
-               [:select {:value (:investor-id @form "") :on-change (on-val :investor-id)}
-                [:option {:value ""} "— select —"]
-                (for [i investors] ^{:key (:id i)} [:option {:value (:id i)} (common/short-id (:id i))])]]
-              [:label "Issuer"
-               [:select {:value (:issuer-id @form "") :on-change (on-val :issuer-id)}
-                [:option {:value ""} "— select —"]
-                (for [i issuers] ^{:key (:id i)} [:option {:value (:id i)} (common/short-id (:id i))])]]
-              [:button.primary {:type "submit"} "Create loan"]]
-             (loans-table loans)]
+                [:h1 "Loans"]
+                [:p.hint "Loans settle asynchronously over Kafka — a new loan starts as "
+                    [:span.badge.pending "created"] " and updates live to "
+                    [:span.badge.ok "approved"] " or " [:span.badge.bad "denied"] "."
+                ]
+                [:form.card.loan-form
+                    {:on-submit (fn [e]
+                        (.preventDefault e)
+                        (rf/dispatch [::events/create-loan @form])
+                        (reset! form {:term (:term @form)})
+                    )}
+                    [:label "Principal" [:input {:type "text" :placeholder "1000.00"
+                                                 :value (:principal @form "") :on-change (on-val :principal)}]]
+                    [:label "Rate" [:input {:type "text" :placeholder "10.00"
+                                            :value (:rate @form "") :on-change (on-val :rate)}]]
+                    [:label "Inception date" [:input {:type "date"
+                                                      :value (:inception-date @form "") :on-change (on-val :inception-date)}]]
+                    [:label "Term (months)" [:input {:type "number" :min 1
+                                                     :value (:term @form "") :on-change (on-val :term)}]]
+                    [:label "Investor"
+                        [:select {:value (:investor-id @form "") :on-change (on-val :investor-id)}
+                            [:option {:value ""} "— select —"]
+                            (for [i investors] ^{:key (:id i)} [:option {:value (:id i)} (common/short-id (:id i))])
+                        ]
+                    ]
+                    [:label "Issuer"
+                        [:select {:value (:issuer-id @form "") :on-change (on-val :issuer-id)}
+                            [:option {:value ""} "— select —"]
+                            (for [i issuers] ^{:key (:id i)} [:option {:value (:id i)} (common/short-id (:id i))])
+                        ]
+                    ]
+                    [:button.primary {:type "submit"} "Create loan"]
+                ]
+                (loans-table loans)
+            ]
         )
     )
 )

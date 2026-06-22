@@ -20,33 +20,40 @@
         (let [items @(rf/subscribe [sub])
               accounts @(rf/subscribe [::subs/accounts])]
             [:section
-             [:h1 title]
-             [:form.card
-              {:on-submit (fn [e]
-                  (.preventDefault e)
-                  (when-let [aid (not-empty (:account-id @form))]
-                      (rf/dispatch [create aid])
-                  )
-                  (reset! form {})
-              )}
-              [:label "Ledger account"
-               [:select {:value (:account-id @form "")
-                         :on-change #(swap! form assoc :account-id (.. % -target -value))}
-                [:option {:value ""} "— select —"]
-                (for [a accounts] ^{:key (:id a)} [:option {:value (:id a)} (:number a)])]]
-              [:button.primary {:type "submit"} (str "Register " singular)]]
-             (if (empty? items)
-                 [:p.empty (str "No " (str/lower-case title) " yet.")]
-                 [:table
-                  [:thead [:tr [:th "ID"] [:th "Account ID"]]]
-                  [:tbody
-                   (for [i items]
-                       ^{:key (:id i)}
-                       [:tr
-                        [:td.mono {:title (str (:id i))} (common/short-id (:id i))]
-                        [:td.mono {:title (str (:account-id i))} (common/short-id (:account-id i))]]
-                   )]]
-             )]
+                [:h1 title]
+                [:form.card
+                    {:on-submit (fn [e]
+                        (.preventDefault e)
+                        (when-let [aid (not-empty (:account-id @form))]
+                            (rf/dispatch [create aid])
+                        )
+                        (reset! form {})
+                    )}
+                    [:label "Ledger account"
+                        [:select {:value (:account-id @form "")
+                                  :on-change #(swap! form assoc :account-id (.. % -target -value))}
+                            [:option {:value ""} "— select —"]
+                            (for [a accounts] ^{:key (:id a)} [:option {:value (:id a)} (:number a)])
+                        ]
+                    ]
+                    [:button.primary {:type "submit"} (str "Register " singular)]
+                ]
+                (if (empty? items)
+                    [:p.empty (str "No " (str/lower-case title) " yet.")]
+                    [:table
+                        [:thead [:tr [:th "ID"] [:th "Account ID"]]]
+                        [:tbody
+                            (for [i items]
+                                ^{:key (:id i)}
+                                [:tr
+                                    [:td.mono {:title (str (:id i))} (common/short-id (:id i))]
+                                    [:td.mono {:title (str (:account-id i))} (common/short-id (:account-id i))]
+                                ]
+                            )
+                        ]
+                    ]
+                )
+            ]
         )
     )
 )

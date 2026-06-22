@@ -20,19 +20,22 @@
 
 (defn navbar [route]
     [:nav.nav
-     [:span.brand "🏦 Bank Console"]
-     [:ul
-      (for [[id label path] nav-items]
-          ^{:key id}
-          [:li [:a {:href path :class (when (= id route) "active")} label]]
-      )]]
+        [:span.brand "🏦 Bank Console"]
+        [:ul
+            (for [[id label path] nav-items]
+                ^{:key id}
+                [:li [:a {:href path :class (when (= id route) "active")} label]]
+            )
+        ]
+    ]
 )
 
 (defn error-banner [error]
     (when error
         [:div.error-banner
-         [:span error]
-         [:button {:on-click #(rf/dispatch [::events/clear-error])} "×"]]
+            [:span error]
+            [:button {:on-click #(rf/dispatch [::events/clear-error])} "×"]
+        ]
     )
 )
 
@@ -40,16 +43,18 @@
     (let [route @(rf/subscribe [::subs/route])
           error @(rf/subscribe [::subs/error])]
         [:div.app
-         [navbar route]
-         [error-banner error]
-         [:main.container
-          (case route
-              :accounts [accounts/page]
-              :transactions [transactions/page]
-              :investors [investors/page]
-              :issuers [issuers/page]
-              :loans [loans/page]
-              [accounts/page]
-          )]]
+            [navbar route]
+            [error-banner error]
+            [:main.container
+                (case route
+                    :accounts [accounts/page]
+                    :transactions [transactions/page]
+                    :investors [investors/page]
+                    :issuers [issuers/page]
+                    :loans [loans/page]
+                    [accounts/page]
+                )
+            ]
+        ]
     )
 )
